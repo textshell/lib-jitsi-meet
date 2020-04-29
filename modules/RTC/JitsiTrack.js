@@ -25,6 +25,9 @@ function addMediaStreamInactiveHandler(mediaStream, handler) {
     mediaStream.oninactive = handler;
 }
 
+
+var local_stream = true;
+
 /**
  * Represents a single media track (either audio or video).
  */
@@ -293,7 +296,10 @@ export default class JitsiTrack extends EventEmitter {
     attach(container) {
         if (this.stream) {
             this._onTrackAttach(container);
-            RTCUtils.attachMediaStream(container, this.stream);
+                RTCUtils.attachMediaStream(container, this.stream);
+	    if (this.isAudioTrack()) {
+		container.muted = true;
+	    }
         }
         this.containers.push(container);
         this._maybeFireTrackAttached(container);

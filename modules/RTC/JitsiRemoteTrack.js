@@ -1,5 +1,6 @@
 import { createTtfmEvent } from '../../service/statistics/AnalyticsEvents';
 import JitsiTrack from './JitsiTrack';
+import * as MediaType from '../../service/RTC/MediaType';
 import * as JitsiTrackEvents from '../../JitsiTrackEvents';
 import Statistics from '../statistics/statistics';
 
@@ -64,6 +65,33 @@ export default class JitsiRemoteTrack extends JitsiTrack {
             videoType);
         this.rtc = rtc;
 
+	if (mediaType === MediaType.AUDIO) {
+		const audioCtx = new AudioContext();
+		const source = audioCtx.createMediaStreamSource(stream);
+		// Create a node
+		const nodePan = audioCtx.createStereoPanner();
+
+		nodePan.pan.value = 0;
+		if (window.jitsihax.participants[ownerEndpointId] !== undefined) {
+			nodePan.pan.value = window.jitsihax.participants[ownerEndpointId].pan;
+		}
+		source.connect(nodePan);
+
+		
+		const nodeGain = audioCtx.createGain();
+
+		if (window.jitsihax.participants[ownerEndpointId] !== undefined) {
+			nodeGain.gain.value = window.jitsihax.participants[ownerEndpointId].gain;
+		}
+		nodePan.connect(nodeGain);
+		
+		nodeGain.connect(audioCtx.destination);
+
+		window.jitsihax.pan_nodes[ownerEndpointId] = nodePan;
+		window.jitsihax.gain_nodes[ownerEndpointId] = nodeGain;
+	}
+
+
         // Prevent from mixing up type of SSRC which should be a number
         if (typeof ssrc !== 'number') {
             throw new TypeError(`SSRC ${ssrc} is not a number`);
@@ -100,6 +128,8 @@ export default class JitsiRemoteTrack extends JitsiTrack {
         this.track.addEventListener('mute', () => this._onTrackMute());
         this.track.addEventListener('unmute', () => this._onTrackUnmute());
         this.track.addEventListener('ended', () => {
+	    delete window.jitsihax.pan_nodes[this.ownerEndpointId];
+	    delete window.jitsihax.gain_nodes[this.ownerEndpointId];
             logger.debug(`"onended" event(${Date.now()}): ${this}`);
         });
     }
